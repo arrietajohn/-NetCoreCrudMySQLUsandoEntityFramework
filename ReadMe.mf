@@ -1,0 +1,391 @@
+1) Crear el proyecto tipo webapi
+2) Crear los namespace
+3) Crear las clases de tipo Entidad
+namespace CrudApiMySqlEf.Domain.Enties;
+public class Usuario
+{
+    public int Id { get; set; }
+    public string Clave { get; set; }
+    public string Nombre { get; set; }
+    public string Email { get; set; }
+    // Navegacion de Recopilacion
+    public ICollection<Gasto> Gastos { get; set; } = new List<Gasto>();
+
+}
+
+namespace CrudApiMySqlEf.Domain.Enties;
+
+public class Gasto
+{
+    public int Id { get; set; }
+    public String Nombre { get; set; }
+    public DateTime Fecha { get; set; }
+    public float Valor { get; set; }
+    public String Detalles { get; set; }
+    public int UsuarioId { get; set; }
+    // Navegacion de referencia (es la FKs)
+    public Usuario Usuario { get; set; }
+}
+3.1) Si una navegación es de recopilación y la otra es de referencia, la relación es de uno a varios.
+3.2) Si ambas navegaciones son navegaciones de referencia, la relación es de uno a uno.
+3.3) Si ambas navegaciones son de recopilación, la relación es de varios a varios.
+4) Opcionalmente (aunque muy recomendable) crear las clase DTO de entrada (Request) y de salida (Response)
+5) Instalar los paquetes necesarios por consola
+5.1) dotnet tool install --global dotnet-ef
+5.2) dotnet add package Microsf.EntityFrameworkCore --version 7.0.5
+5.3) dotnet add package Microsoft.EntityFrameworkCore.Tools --version 7.0.5
+5.4) dotnet add package Microsoft.EntityFrameworkCore.Design
+5.5) dotnet add package MySql.Data.EntityFrameworkCore --version 8.0.22
+     dotnet add package MySql.Data.EntityFramework -Version 8.0.22 (recomandadio por Doc MySQL)
+     dotnet add package Pomelo.EntityFrameworkCore.MySql --version 7.0.0 (opcional)
+6) Verificar que todo este bien instalado 
+6.1) dotnet ef
+7) Crear la clase de Contexto 
+    
+        using CrudApiMySqlEf.Domain.Enties;
+        using Microsoft.EntityFrameworkCore;
+
+        namespace CrudApiMySqlEfNet6.Infrastructure.Databases;
+        public class DbContextEfMySql : DbContext
+        {
+            private const string connectionMySql = "server=localhost;Uid=root;password=root;database=bd_net7";
+
+            public DbSet<Usuario> Usuarios {get; set;}
+
+            protected override void OnConfiguring(DbContextOptionsBuilder opciones)
+            {
+                opciones.UseMySql(connectionMySql, ServerVersion.AutoDetect(connectionMySql));
+            }
+        }
+ 8) Registrar el Contexto como servicios usando la DOI (Dependency Of Injection) en Programa.cs
+    builder.Services.AddDbContext<DbContextEfMySql>();
+ 9). Recompilar 
+ 9.1) dotnet build
+ 10) Realizar la migracion
+ 10.1) dotnet ef migrations migracion_inicial
+ 10.2) dotnet ef database update
+ 11) Crear los Repositorios
+  11.1) IUsuarioRepository
+    -- Insertatr
+    -- Buscar
+    -- Listar
+    -- Insertat
+    -- Actualizar
+    -- Contar
+
+ using CrudApiMySqlEf.Domain.Enties;
+
+namespace CrudApiMySqlEfNet6.Infrastructure.Repository;
+
+public interface IUsuarioRepository
+{
+    void Insertar(Usuario usuario);
+    Task InsertarAsync(Usuario usuario);
+    Usuario buscarPorId(int id);
+    Task<Usuario> buscarPorIdAsync(int id);
+    List<Usuario> listarTodo();
+    Task<List<Usuario>> listarTodoAsync();
+    void Actualizar(Usuario usuario);
+    Task  ActualizarAsync(Usuario usuario);
+    void EliminarPorId(int id);
+    Task  EliminarPorIdAsync(int id);
+    void Eliminar(Usuario usuario);
+    Task  EliminarAsync(Usuario usuario);
+    long contar();
+    Task<long> contarAsync();
+}
+
+ 11.2) UsuarioRepository : IUsuarioRepository
+ 11.2.1) Injectar el DbContextEfMySql
+ 11.2.2) Usar los metodos heredados desde DdContext (add, select, remove, count, SaveChanges...)
+
+using CrudApiMySqlEf.Domain.Enties;
+using CrudApiMySqlEfNet6.Infrastructure.Databases;
+using Microsoft.EntityFrameworkCore;
+
+namespace CrudApiMySqlEfNet6.Infrastructure.Repository;
+
+
+public class UsuarioRepository : IUsuarioRepository
+{
+    
+    private DbContextEfMySql _dbContext;
+    public UsuarioRepository(DbContextEfMySql dbContext ){
+        _dbContext = dbContext;
+    }
+
+    public void Actualizar(Usuario usuario)
+    {
+        try
+        {
+            _dbContext.Usuarios.Update(usuario);
+            _dbContext.SaveChanges();
+        }
+        catch (System.Exception)
+        {
+            throw new Exception($"Usuario con Id: {usuario.Id} no existe");
+        }
+    }
+
+    public Task ActualizarAsync(Usuario usuario)
+    {
+        throw new NotImplementedException();
+    }
+
+
+    public Usuario BuscarPorId(int id)
+    {
+        try
+        {
+             return _dbContext.Usuarios.Single(u => u.Id == id);
+        }
+        catch (System.Exception)
+        {
+            throw new Exception($"Usuario con ID: {id} no existe");
+        }
+    }
+
+    public Task<Usuario> BuscarPorIdAsync(int id)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Int64 Contar()
+    {
+        return _dbContext.Usuarios.Count();
+    }
+
+    public Task<long> ContarAsync()
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Eliminar(Usuario usuario)
+    {
+        try
+        {
+            _dbContext.Usuarios.Remove(usuario);
+            _dbContext.SaveChanges();
+        }
+        catch (DbUpdateException)
+        {
+            throw new Exception($"Usuario con ID: {usuario.Id} No existe");
+        }
+    }
+
+    public Task EliminarAsync(Usuario usuario)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void EliminarPorId(int id)
+    {
+        Eliminar(new Usuario{Id = id});
+    }
+
+    public Task EliminarPorIdAsync(int id)
+    {
+        throw new NotImplementedException();
+    }
+
+    public void Insertar(Usuario usuario)
+    {
+        try
+        {
+             _dbContext.Usuarios.Add(usuario);
+        _dbContext.SaveChanges();
+        }
+        catch (DbUpdateException)
+        {
+            throw new Exception($"Usuario con ID: {usuario.Id} Ya existe");
+        }
+    }
+
+    public Task InsertarAsync(Usuario usuario)
+    {
+        throw new NotImplementedException();
+    }
+
+    public List<Usuario> ListarTodo()
+    {
+       return  _dbContext.Usuarios.ToList();
+    }
+
+    public Task<List<Usuario>> ListarTodoAsync()
+    {
+        throw new NotImplementedException();
+    }
+
+    public long EliminarTodo(){
+        try
+        {   long total = _dbContext.Usuarios.LongCount();
+            _dbContext.Usuarios.RemoveRange(_dbContext.Usuarios);
+            _dbContext.SaveChanges();
+            return total;
+        }
+        catch (DbUpdateException error)
+        {
+            throw new Exception($"Error al aliminar todos los Usuario\nMensaje:"+error.Message);
+        }
+    }
+}
+
+ 12) Registrar los repositorios como servicios usando la DOI 
+     builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+ 13) Probar las clases Repository desde usando UnitTest o con un metodo simple en el Programa.clase
+ 14) Si se requiere programar logica de negocio (operaciones diferentes a CRUD), entonces, database 
+     debemos crear las clases de servicios
+ 14.1) Registrar las clases de servicios como Servicios usando DOI
+ 15.2) Probar los metodos de las clases de servicios
+ 16) Crear las clases Controladoras que hereden de ControllerBase
+ 16.1) Decorar la clase con [Route("endpoint_base.[controller])]
+ 16.2) Injectar el o los objetos de servicio
+ 16.3) Crear los metodos para las peticiones Get, Post, Put, Delete y Path
+ 16.4) Segun sea cada caso, debemos decorar los metodos con:
+      - [HttpGet]
+      - [HttpPost]
+      - [HttpPut]
+      - [HttpDelete]
+      - [HttpPath]
+ 16.5) Segun sea el caso, podemos usar las siguientes anotaciones o atributos
+      - [Route("endpoint")] - Para establecer la ruta final (endpoint) del metodo
+      - [FromBody]  - Para recuprar el JSON que debe ir en el cuerpo de la peticion y convertirlo en objeto .Net
+      - [Route("endpoint/{parametro}")] y [FromRoute] - El primero para establecer que en la URL puede llegar un dato 
+         mientras que el segundo lo saremos para recuprar ese dato y convertirlo en un tipo primitivo .Net que cuyo valor
+         se debe asignar al parametro inmediatamente siguiente que se encuentra en el metodo.
+
+using System.Net;
+using CrudApiMySqlEf.Domain.Enties;
+using CrudApiMySqlEfNet6.Infrastructure.Repository;
+using Microsoft.AspNetCore.Mvc;
+
+namespace CrudApiMySqlEfNet6.Infrastructure.Controllers;
+
+[Route("api.[controller]")]
+public class UsuarioController : ControllerBase
+{
+
+    private IUsuarioRepository usuarioRepository;
+
+    public UsuarioController(IUsuarioRepository usuarioRepository)
+    {
+        this.usuarioRepository = usuarioRepository;
+    }
+
+    [HttpPost]
+    [Route("Post")]
+    public IActionResult InsertUsuario([FromBody] Usuario usuario)
+    {
+        try
+        {
+            usuarioRepository.Insertar(usuario);
+            return CreatedAtAction(null, new {Mensaje = "Usuario creado", usuario});
+        }
+        catch (System.Exception error)
+        {
+            return Problem(
+                        detail: error.Message
+                        , statusCode: (int?)HttpStatusCode.Found
+                        , type: "Insertar"
+                        , title: "Crear Usuario"
+                        );
+        }
+    }
+
+    [HttpGet]
+    [Route("All")]
+    public IActionResult ListAll()
+    {
+        List<Usuario> usuarios = usuarioRepository.ListarTodo();
+        return Ok(usuarios);
+    }
+
+    [HttpGet]
+    [Route("Get/{id}")]
+    public IActionResult FindById([FromRoute] int id)
+    {
+        try
+        {
+            var usaurio = this.usuarioRepository.BuscarPorId(id);
+            return Ok(usaurio);
+        }
+        catch (System.Exception error)
+        {
+            System.Console.WriteLine("ERROR: " + error.Message);
+            return Problem(
+                        detail: error.Message
+                        , statusCode: (int?)HttpStatusCode.NotFound
+                        , type: "Consulta"
+                        , title: "Consulta de Usuario"
+                        );
+        }
+    }
+
+    [HttpGet]
+    [Route("Count")]
+    public IActionResult Count()
+    {
+        var resultado = new { items = usuarioRepository.Contar() };
+        return Ok(resultado);
+    }
+
+    [HttpPut]
+    [Route("Put/{id}")]
+    public IActionResult Update([FromRoute] int id, [FromBody] Usuario usuario)
+    {
+        try
+        {
+            usuario.Id = id;
+            usuarioRepository.Actualizar(usuario);
+            return CreatedAtAction(null, new { Mensaje = "Usaurio actualizado" });
+        }
+        catch (System.Exception error)
+        {
+            return Problem(title: "Actualizar Usuario"
+                     , detail: error.Message
+                     , type: "Actualizacion"
+                     , statusCode: (int)HttpStatusCode.NotFound);
+        }
+    }
+
+    [HttpDelete]
+    [Route("Delete/{id}")]
+    public IActionResult DeleteUsuario([FromRoute] int id)
+    {
+        try
+        {
+            usuarioRepository.EliminarPorId(id);
+            return NoContent();
+        }
+       catch (System.Exception error)
+        {
+            return Problem(title: "Eliminar Usuario"
+                     , detail: error.Message
+                     , type: "Eliminar"
+                     , statusCode: (int)HttpStatusCode.NotFound);
+        }
+    }
+
+    [HttpDelete]
+    [Route("Delete/All")]
+    public IActionResult DeleteAllUsuario()
+    {
+        try
+        {
+            long total = usuarioRepository.EliminarTodo();
+            return Ok(new {Total=total});
+        }
+       catch (System.Exception error)
+        {
+            return Problem(title: "Eliminar Todos los Usuarios"
+                     , detail: error.Message
+                     , type: "Eliminar"
+                     , statusCode: (int)HttpStatusCode.NotFound);
+        }
+    }
+}
+
+ 17) Ir probando cada uno de los metodos conforme los vamos desarrollando, para esto podemos 
+     utilizar herramientas especiales como: Postman, Boomerang (GChrome), HTTPie, TestMace,RESTClient, RESTer, Requester, rest-client, FRequest
+ 
+ 
